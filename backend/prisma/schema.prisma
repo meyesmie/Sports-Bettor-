@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  password        String
+  fullName        String?
+  emailVerified   Boolean  @default(false)
+  subscribed      Boolean  @default(false)
+  subscriptionExp DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  subscriptions   Subscription[]
+  payments        Payment[]
+  refreshTokens   RefreshToken[]
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  plan      String   // weekly, monthly
+  startDate DateTime
+  endDate   DateTime
+  active    Boolean  @default(true)
+  paymentId String?
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  amount          Float
+  currency        String   @default("USD")
+  method          String   // paypal, skrill, paystack
+  transactionId   String   @unique
+  status          String   @default("pending")
+  metadata        Json?
+  createdAt       DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Country {
+  id   String @id @default(uuid())
+  name String @unique
+  code String @unique  // e.g., "ENG", "ESP"
+  flag String?         // flag emoji or URL
+}
+
+model League {
+  id        String  @id @default(uuid())
+  name      String
+  countryId String
+  country   Country @relation(fields: [countryId], references: [id])
+  logo      String?
+}
+
+model Team {
+  id      String  @id @default(uuid())
+  name    String
+  logo    String?
+  countryId String?
+  country   Country? @relation(fields: [countryId], references: [id])
+}
+
+model Match {
+  id          String    @id @default(uuid())
+  countryId   String
+  country     Country   @relation(fields: [countryId], references: [id])
+  leagueId    String
+  league      League    @relation(fields: [leagueId], references: [id])
+  homeTeamId  String
+  homeTeam    Team      @relation("HomeMatches", fields: [homeTeamId], references: [id])
+  awayTeamId  String
+  awayTeam    Team      @relation("AwayMatches", fields: [awayTeamId], references: [id])
+  matchDate   DateTime
+  kickoffTime String
+  status      String    @default("scheduled") // scheduled, live, finished
+  featured    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  predictions   Prediction[]
+  premiumPicks  PremiumPick[]
+}
+
+model Prediction {
+  id          String   @id @default(uuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id])
+  type        String   // win, draw, away, double_chance, over1.5, etc.
+  prediction  String   // e.g., "1X", "Over 2.5"
+  odds        Float
+  confidence  Int      // 0-100
+  isPremium   Boolean  @default(false)
+  analysis    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model PremiumPick {
+  id          String   @id @default(uuid())
+  title       String
+  type        String   // daily_combo, weekend_combo, accumulator, etc.
+  selections  Json     // array of matches/predictions
+  description String?
+  stakeAdvice String?
+  riskLevel   String   // low, medium, high
+  odds        Float
+  instructions String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  message   String
+  type      String   // subscription, premium_pick, admin
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  adminId   String?
+  action    String
+  details   String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
